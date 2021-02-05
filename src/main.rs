@@ -1,11 +1,12 @@
-use warp::{Filter, Reply, Rejection};
-use warp::reject::Reject;
-use warp::http::{Response, StatusCode};
-use rusttype::Font;
 use image::io::Reader as ImageReader;
 use image::RgbaImage;
-use std::path::Path;
 use include_repo::*;
+use rusttype::Font;
+use serde::Serialize;
+use std::path::Path;
+use warp::http::{Response, StatusCode};
+use warp::reject::Reject;
+use warp::{Filter, Rejection, Reply};
 
 const DEJA_VU_FONT: &[u8] = include_bytes!("../assets/DejaVuSans.ttf");
 
@@ -14,11 +15,16 @@ include_repo::include_repo!(SOURCE_CODE);
 #[derive(Debug)]
 struct InvalidBody;
 
-impl Reject for InvalidBody{}
+impl Reject for InvalidBody {}
 
-async fn upload(body: bytes::Bytes) -> Result<impl warp::Reply, Rejection> {
-    let req = String::from_utf8(body.to_vec())
-        .map_err(|e| warp::reject::custom(InvalidBody))?;
+#[derive(Debug, Serialize)]
+struct Cards {
+    front: String,
+    back: String,
+}
+
+async fn upload(conf: Config, body: bytes::Bytes) -> Result<impl warp::Reply, Rejection> {
+    let req = String::from_utf8(body.to_vec()).map_err(|e| warp::reject::custom(InvalidBody))?;
     let req = req.trim();
     let words: Vec<_> = req.lines().collect();
     if words.len() < 25 {
@@ -30,9 +36,15 @@ async fn upload(body: bytes::Bytes) -> Result<impl warp::Reply, Rejection> {
     // For unknown reasons, ImageReader::new(Cursor::new(include_bytes!(../assets/file.png)))
     // does not decode correctly, so don't compile the image into the binary :(
     // TODO: we shouldn't be loading these images from disk every time
-    let front = ImageReader::open("./assets/codenames-front.png").unwrap().decode().unwrap();
+    let front = ImageReader::open("./assets/codenames-front.png")
+        .unwrap()
+        .decode()
+        .unwrap();
     let front = front.as_rgba8().unwrap();
-    let back = ImageReader::open("./assets/codenames-back.png").unwrap().decode().unwrap();
+    let back = ImageReader::open("./assets/codenames-back.png")
+        .unwrap()
+        .decode()
+        .unwrap();
     let back = back.as_rgba8().unwrap();
 
     let num_cards = words.len();
@@ -64,36 +76,71 @@ async fn upload(body: bytes::Bytes) -> Result<impl warp::Reply, Rejection> {
         );
     }
 
-
     // And now write the image
     let id = uuid::Uuid::new_v4();
     std::fs::create_dir_all("decks").unwrap();
-    out_f.save(Path::new("decks").join(id.to_string() + "_f.png")).unwrap();
-    out_b.save(Path::new("decks").join(id.to_string() + "_b.png")).unwrap();
-    // TODO: json
-    Ok(Response::builder().body(id.to_string()))
+    out_f
+        .save(Path::new("decks").join(id.to_string() + "_f.png"))
+        .unwrap();
+    out_b
+        .save(Path::new("decks").join(id.to_string() + "_b.png"))
+        .unwrap();
+    Ok(warp::reply::json(&Cards {
+        front: format!("{}/deck/{}_f.png", conf.root, id),
+        back: format!("{}/deck/{}_b.png", conf.root, id),
+    }))
+}
+
+#[derive(Clone, Debug)]
+struct Config {
+    root: String,
+}
+
+impl Config {
+    fn must_from_env() -> Self {
+        Config {
+            root: std::env::var("ROOT")
+                .expect("Must set ROOT env var to the url this website is served at"),
+        }
+    }
+}
+
+fn config(
+    conf: Config,
+) -> impl Filter<Extract = (Config,), Error = std::convert::Infallible> + Clone {
+    warp::any().map(move || conf.clone())
 }
 
 #[tokio::main]
 async fn main() {
-    let root = warp::path::end().map(|| "Welcome to this AGPL licensed webpage. Source code is at /source.tar.gz");
-    let upload = warp::path("upload").and(warp::filters::body::bytes()).and_then(upload);
-    let deck = warp::path("deck").map(|| "Hello, World!");
+    let conf = Config::must_from_env();
 
-    let source_code = warp::path("source").map(|| Response::builder().header("Content-Type", "application/x-tar").body(&SOURCE_CODE[..]));
+    let root = warp::path::end()
+        .map(|| "Welcome to this AGPL licensed webpage. Source code is at /source.tar.gz");
+    let upload = warp::path("upload")
+        .and(config(conf))
+        .and(warp::filters::body::bytes())
+        .and_then(upload);
+    let decks = warp::path("deck").and(warp::fs::dir("./decks"));
 
-    let routes = warp::get().and(
-        deck
-        .or(source_code)
-        .or(root),
-    ).or(
-        warp::post().and(upload)
-    );
+    let source_code = warp::path("source").map(|| {
+        Response::builder()
+            .header("Content-Type", "application/x-tar")
+            .body(&SOURCE_CODE[..])
+    });
+
+    let routes = warp::get()
+        .and(root.or(decks).or(source_code))
+        .or(warp::post().and(upload));
     let routes = routes.recover(handle_rejection);
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }
 
 async fn handle_rejection(err: Rejection) -> Result<impl Reply, std::convert::Infallible> {
     // TODO: bother with error handling
-    Ok(warp::reply::with_status(":(", StatusCode::INTERNAL_SERVER_ERROR))
+    println!("error: {:?}", err);
+    Ok(warp::reply::with_status(
+        ":(",
+        StatusCode::INTERNAL_SERVER_ERROR,
+    ))
 }

@@ -115,6 +115,7 @@ dependencies = [
  "imageproc",
  "include-repo",
  "rusttype",
+ "serde",
  "tokio",
  "uuid",
  "warp",
@@ -1262,6 +1263,20 @@ name = "serde"
 version = "1.0.123"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "92d5161132722baa40d802cc70b15262b98258453e85e5d1d365c757c73869ae"
+dependencies = [
+ "serde_derive",
+]
+
+[[package]]
+name = "serde_derive"
+version = "1.0.123"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9391c295d64fc0abb2c556bad848f33cb8296276b1ad2677d1ae1ace4f258f31"
+dependencies = [
+ "proc-macro2 1.0.24",
+ "quote 1.0.8",
+ "syn 1.0.60",
+]
 
 [[package]]
 name = "serde_json"
