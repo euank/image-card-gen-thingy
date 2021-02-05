@@ -21,6 +21,7 @@ impl Reject for InvalidBody {}
 struct Cards {
     front: String,
     back: String,
+    num_cards: u32,
 }
 
 async fn upload(conf: Config, body: bytes::Bytes) -> Result<impl warp::Reply, Rejection> {
@@ -88,6 +89,7 @@ async fn upload(conf: Config, body: bytes::Bytes) -> Result<impl warp::Reply, Re
     Ok(warp::reply::json(&Cards {
         front: format!("{}/deck/{}_f.png", conf.root, id),
         back: format!("{}/deck/{}_b.png", conf.root, id),
+        num_cards: num_cards as u32,
     }))
 }
 
@@ -116,7 +118,7 @@ async fn main() {
     let conf = Config::must_from_env();
 
     let root = warp::path::end()
-        .map(|| "Welcome to this AGPL licensed webpage. Source code is at /source.tar.gz");
+        .map(|| "Welcome to this AGPL licensed webpage. Source code is at /source");
     let upload = warp::path("upload")
         .and(config(conf))
         .and(warp::filters::body::bytes())
@@ -131,7 +133,7 @@ async fn main() {
 
     let routes = warp::get()
         .and(root.or(decks).or(source_code))
-        .or(warp::post().and(upload));
+        .or(warp::put().and(upload));
     let routes = routes.recover(handle_rejection);
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }
