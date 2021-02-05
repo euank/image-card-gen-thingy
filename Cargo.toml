@@ -1,5 +1,5 @@
 [package]
-name = "codenames-imgager"
+name = "image-card-gen-thingy"
 version = "0.1.0"
 authors = ["Euan Kemp <euank@euank.com>"]
 edition = "2018"

@@ -107,21 +107,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
-name = "codenames-imgager"
-version = "0.1.0"
-dependencies = [
- "bytes",
- "image",
- "imageproc",
- "include-repo",
- "rusttype",
- "serde",
- "tokio",
- "uuid",
- "warp",
-]
-
-[[package]]
 name = "color_quant"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -526,6 +511,21 @@ dependencies = [
  "png",
  "scoped_threadpool",
  "tiff",
+]
+
+[[package]]
+name = "image-square-server-thingy"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "image",
+ "imageproc",
+ "include-repo",
+ "rusttype",
+ "serde",
+ "tokio",
+ "uuid",
+ "warp",
 ]
 
 [[package]]

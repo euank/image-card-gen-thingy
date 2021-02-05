@@ -39,12 +39,12 @@ async fn upload(conf: Config, body: bytes::Bytes) -> Result<impl warp::Reply, Re
     // For unknown reasons, ImageReader::new(Cursor::new(include_bytes!(../assets/file.png)))
     // does not decode correctly, so don't compile the image into the binary :(
     // TODO: we shouldn't be loading these images from disk every time
-    let front = ImageReader::open("./assets/codenames-front.png")
+    let front = ImageReader::open("./assets/card-front.png")
         .unwrap()
         .decode()
         .unwrap();
     let front = front.as_rgba8().unwrap();
-    let back = ImageReader::open("./assets/codenames-back.png")
+    let back = ImageReader::open("./assets/card-back.png")
         .unwrap()
         .decode()
         .unwrap();
