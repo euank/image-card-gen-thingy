@@ -22,6 +22,8 @@ struct Cards {
     front: String,
     back: String,
     num_cards: u32,
+    num_cards_wide: u32,
+    num_cards_tall: u32,
 }
 
 async fn upload(conf: Config, body: bytes::Bytes) -> Result<impl warp::Reply, Rejection> {
@@ -49,13 +51,17 @@ async fn upload(conf: Config, body: bytes::Bytes) -> Result<impl warp::Reply, Re
     let back = back.as_rgba8().unwrap();
 
     let num_cards = words.len();
-
+    // Make it as square as possible because TTS gets mad at images with alrge width or height
+    // values, and squaring it up minimizes those.
+    let card_w = (num_cards as f64).sqrt().floor() as u32;
+    let card_h = (num_cards as f64 / card_w as f64).ceil() as u32;
     let width = front.width();
     let height = front.height();
-    let out_height = height * num_cards as u32;
+    let out_width = width * card_w as u32;
+    let out_height = height * card_h as u32;
 
-    let mut out_f = RgbaImage::new(width, out_height);
-    let mut out_b = RgbaImage::new(width, out_height);
+    let mut out_f = RgbaImage::new(out_width, out_height);
+    let mut out_b = RgbaImage::new(out_width, out_height);
     image::imageops::tile(&mut out_f, front);
     image::imageops::tile(&mut out_b, back);
     // And now write on the words
@@ -64,13 +70,15 @@ async fn upload(conf: Config, body: bytes::Bytes) -> Result<impl warp::Reply, Re
     let text_rect = (40, 134, 313, 190);
 
     for (i, word) in words.iter().enumerate() {
+        let x_off = i as u32 % card_w;
+        let y_off = i as u32 / card_w;
         // TODO: calculate the width of the drawn glyphs before drawing them so we can center them.
         // Also, reduce the scale size down if it's overflowing the box based on the pre-draw math.
         imageproc::drawing::draw_text_mut(
             &mut out_f,
             *image::Pixel::from_slice(&[0 as u8, 0, 0, 255]),
-            text_rect.0,
-            text_rect.1 + (i as u32 * height),
+            text_rect.0 + (x_off * width),
+            text_rect.1 + (y_off * height),
             rusttype::Scale::uniform(64.0),
             &font,
             word,
@@ -90,6 +98,8 @@ async fn upload(conf: Config, body: bytes::Bytes) -> Result<impl warp::Reply, Re
         front: format!("{}/deck/{}_f.png", conf.root, id),
         back: format!("{}/deck/{}_b.png", conf.root, id),
         num_cards: num_cards as u32,
+        num_cards_wide: card_w as u32,
+        num_cards_tall: card_h as u32,
     }))
 }
 
