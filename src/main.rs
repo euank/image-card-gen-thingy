@@ -5,8 +5,11 @@ use rusttype::Font;
 use image::io::Reader as ImageReader;
 use image::RgbaImage;
 use std::path::Path;
+use include_repo::*;
 
 const DEJA_VU_FONT: &[u8] = include_bytes!("../assets/DejaVuSans.ttf");
+
+include_repo::include_repo!(SOURCE_CODE);
 
 #[derive(Debug)]
 struct InvalidBody;
@@ -77,8 +80,11 @@ async fn main() {
     let upload = warp::path("upload").and(warp::filters::body::bytes()).and_then(upload);
     let deck = warp::path("deck").map(|| "Hello, World!");
 
+    let source_code = warp::path("source").map(|| Response::builder().header("Content-Type", "application/x-tar").body(&SOURCE_CODE[..]));
+
     let routes = warp::get().and(
         deck
+        .or(source_code)
         .or(root),
     ).or(
         warp::post().and(upload)
